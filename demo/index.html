@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>color-fx demo</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;padding:48px 24px;line-height:1.6}
+h1{font-size:2.4rem;font-weight:900;background:linear-gradient(135deg,#7064ff,#ff6b9d,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px}
+.sub{color:#64748b;margin-bottom:52px}
+h2{font-size:.75rem;text-transform:uppercase;letter-spacing:.1em;color:#7064ff;font-weight:700;margin:52px 0 20px}
+.controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:24px}
+input[type=color]{width:50px;height:40px;border:none;border-radius:8px;cursor:pointer;background:none;padding:0}
+select,button{background:#1e293b;color:#e2e8f0;border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px 16px;font-size:.9rem;cursor:pointer;font-family:inherit}
+button{background:#7064ff;color:#fff;border:none;padding:10px 22px;font-weight:600}
+.palette{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}
+.swatch{flex:1;min-width:50px;height:80px;border-radius:8px;cursor:pointer;transition:transform .15s;position:relative}
+.swatch:hover{transform:scaleY(1.08)}
+.swatch-label{font-size:.65rem;position:absolute;bottom:6px;left:50%;transform:translateX(-50%);
+              background:rgba(0,0,0,.6);padding:2px 6px;border-radius:4px;white-space:nowrap;
+              opacity:0;transition:opacity .2s;pointer-events:none}
+.swatch:hover .swatch-label{opacity:1}
+.section{margin-bottom:48px}
+.contrast-box{background:#1e293b;border-radius:12px;padding:20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.contrast-box input{flex:1;min-width:140px}
+.wcag-badge{padding:4px 10px;border-radius:6px;font-size:.75rem;font-weight:700}
+.pass{background:rgba(34,197,94,.18);color:#22c55e}
+.fail{background:rgba(239,68,68,.18);color:#ef4444}
+.theme-output{background:#1e293b;border-radius:12px;padding:20px;font-size:.8rem;font-family:monospace;color:#94a3b8;white-space:pre;overflow-x:auto}
+</style>
+</head>
+<body>
+<h1>color-fx</h1>
+<p class="sub">Color palette generator, harmony builder, contrast checker, CSS theme exporter.</p>
+
+<div class="section">
+  <h2>Palette Generator</h2>
+  <div class="controls">
+    <input type="color" id="baseColor" value="#7064ff">
+    <select id="mode">
+      <option value="shades">Shades (9-step)</option>
+      <option value="analogous">Analogous</option>
+      <option value="complementary">Complementary</option>
+      <option value="triadic">Triadic</option>
+      <option value="tetradic">Tetradic</option>
+      <option value="split-complementary">Split Complementary</option>
+    </select>
+    <button onclick="generateRandom()">Random</button>
+  </div>
+  <div class="palette" id="palette"></div>
+  <div id="copied" style="color:#22c55e;font-size:.85rem;height:20px"></div>
+</div>
+
+<div class="section">
+  <h2>Contrast Checker (WCAG)</h2>
+  <div class="contrast-box">
+    <div>
+      <label style="font-size:.8rem;color:#64748b;display:block;margin-bottom:4px">Foreground</label>
+      <input type="color" id="fg" value="#e2e8f0">
+    </div>
+    <div>
+      <label style="font-size:.8rem;color:#64748b;display:block;margin-bottom:4px">Background</label>
+      <input type="color" id="bg" value="#0f172a">
+    </div>
+    <div id="contrast-result" style="font-size:.9rem"></div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>CSS Theme Export</h2>
+  <div class="theme-output" id="theme-output"></div>
+</div>
+
+<script src="../src/color-fx.js"></script>
+<script>
+function renderPalette(palette) {
+  const el = document.getElementById('palette');
+  el.innerHTML = '';
+  palette.forEach(c => {
+    const s = document.createElement('div');
+    s.className = 'swatch';
+    s.style.background = c;
+    s.innerHTML = `<span class="swatch-label">${c}</span>`;
+    s.onclick = () => {
+      navigator.clipboard?.writeText(c);
+      const cp = document.getElementById('copied');
+      cp.textContent = `Copied ${c}`;
+      setTimeout(() => cp.textContent = '', 2000);
+    };
+    el.appendChild(s);
+  });
+}
+
+function generate() {
+  const hex  = document.getElementById('baseColor').value;
+  const mode = document.getElementById('mode').value;
+  let palette;
+  if (mode === 'shades')              palette = ColorFx.shades(hex);
+  else if (mode === 'analogous')      palette = ColorFx.analogous(hex);
+  else if (mode === 'complementary')  palette = ColorFx.complementary(hex);
+  else if (mode === 'triadic')        palette = ColorFx.triadic(hex);
+  else if (mode === 'tetradic')       palette = ColorFx.tetradic(hex);
+  else                                palette = ColorFx.splitComplementary(hex);
+  renderPalette(palette);
+  document.getElementById('theme-output').textContent = ColorFx.buildTheme(hex);
+}
+
+function generateRandom() {
+  const palette = ColorFx.random();
+  document.getElementById('baseColor').value = palette[0];
+  renderPalette(palette);
+  document.getElementById('theme-output').textContent = ColorFx.buildTheme(palette[0]);
+}
+
+function checkContrast() {
+  const fg = document.getElementById('fg').value;
+  const bg = document.getElementById('bg').value;
+  const r  = ColorFx.wcag(fg, bg);
+  document.getElementById('contrast-result').innerHTML = `
+    <strong style="font-size:1.5rem">${r.ratio}:1</strong><br>
+    <span class="wcag-badge ${r.aa ? 'pass' : 'fail'}" style="margin-top:6px;display:inline-block">AA ${r.aa ? 'Pass' : 'Fail'}</span>
+    &nbsp;<span class="wcag-badge ${r.aaa ? 'pass' : 'fail'}">AAA ${r.aaa ? 'Pass' : 'Fail'}</span>
+  `;
+}
+
+document.getElementById('baseColor').addEventListener('input', generate);
+document.getElementById('mode').addEventListener('change', generate);
+document.getElementById('fg').addEventListener('input', checkContrast);
+document.getElementById('bg').addEventListener('input', checkContrast);
+
+generate();
+checkContrast();
+</script>
+</body>
+</html>
